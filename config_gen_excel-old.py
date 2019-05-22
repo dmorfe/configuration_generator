@@ -61,8 +61,7 @@ def getpassword(usern):
 #parse arguments from command line
 def getargs():
     parser = argparse.ArgumentParser(description='Playbook Runner by David Morfe')
-    parser.add_argument('--subplan',required=True, help='Subnet Planning name is required.')
-    parser.add_argument('--portmatrix',required=True, help='Port Matrix name is required.')
+    parser.add_argument('-i','--inputfile',required=True, help='inputfile name is required.')
     parser.add_argument('-t', '--j2template', required=True, help='Jinja2 Template file to use.')
     parser.add_argument('-w', help='specify if configuration should be save into Startup Config.\
      \'Y\' to write config \'N\' to preserve Startup Config. If this flag is not specified or any other \
@@ -89,17 +88,6 @@ def getargs():
 
     return(args)
 
-# generate VLAN name
-def GenVlanName(vlantype, swname):
-    newVlanName = swname.replace('-','_')
-    newVlanName = newVlanName.replace('IDF','0')
-    newVlanName = newVlanName.replace('SE','0')
-    newVlanName = newVlanName.replace('WL','0')
-    newVlanName = newVlanName.replace('AL','0')
-
-    return(vlantype + newVlanName)
-
-
 # Initializes the threads. Expects an interger as a parameter.
 def CreateThreads(n):
     print('Creating ' + str(n) + ' Threads')
@@ -121,27 +109,26 @@ def OpenOutputConfigFile(hostname):
     fileH = open(hostname + ".config",'w')
     return(fileH)
 
-def WriteYamlFile(rw):
-    fileH = open(rw.get('hostname') + ".yaml",'w')
-    fileH.write(yaml.dump(rw, explicit_start=True, indent=5, default_flow_style=False))
-    fileH.close()
-
-
 # write command header and results to OpenOutputConfigFile
 def WriteConfig(dicttowr, fileh):
+    #Load data from YAML file into Python dictionary
+
     #Load Jinja2 template
     env = Environment(loader = FileSystemLoader('./'), trim_blocks=True, lstrip_blocks=True)
     template = env.get_template(templatefile)
 
     #Render template using data and print the output
     GenarateDevConfig = template.render(dicttowr)
-    fileh.write(GenarateDevConfig)
+    print(GenarateDevConfig)
+    fileh.write(GenerateConfig)
 
 # Connects to device runs commands and creates and log file
 def GenerateConfig(rw):
+
     fh = OpenOutputConfigFile(rw['hostname'])
+
     WriteConfig(rw, fh)
-    WriteYamlFile(rw)
+
     fh.close()
 
 def cidr_to_netmask(cidr):
@@ -150,7 +137,7 @@ def cidr_to_netmask(cidr):
     return netmask
 
 # open Excel Workbook and reaad rows and queue for processing
-def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
+def ReadWorkBookIntoQueue(inputWB):
     worksheets = {}
     ManagementIP = ''
     ManagementMask = ''
@@ -159,9 +146,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
     current_IDF_ID = ''
     current_service = ''
 
-    portmatrixwb = excel.ExcelFile(portMatrix)
-
-    with excel.ExcelFile(inputSubPlan) as wb:
+    with excel.ExcelFile(inputWB) as wb:
         for sname in wb.sheet_names:
             print('**** Sheet Name: '+ str(sname))
             #readsheet = excel.read_excel(wb,sheet_name=sname,converters={'Username':str,'Password':str,'Secret':str,'data_type':str,'Show_Commands':str,'Config_Commands':str})
@@ -171,91 +156,57 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
             print('Finding management subnet and VLAN: \n')
             for rw in worksheets[sname]:
-                if rw.get('Service') == 'Wired Switch Management' or rw.get('Service') == 'Wireless Switch Management' or \
-                rw.get('Service') == 'Security Switch Management':
+                print(rw.get('Service'))
+                if rw.get('Service') == 'Wired Switch Management':
                     ManagementIP, ManagementMask = str(rw.get('Assigned Subnets')).split('/')
                     ManagementVLAN = rw.get('VLAN')
                     break
 
             for rw in worksheets[sname]:
-                if rw.get('Service') == rw.get('Service'):
-                    current_service = rw.get('Service')
+                switch_dict = {'hostname': '', 'datavlans': [], 'datasubnet': '', 'datamask': '', 'voicevlans': [], \
+                'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentIP': '', 'managementMask': ''}
 
-                if str(current_service).strip() == 'Data' or str(current_service).strip() == 'Security Cameras' or \
-                str(current_service).strip() == 'Security Cameras':
-                    switch_dict = {'hostname': '', 'IDFID': '', 'datavlanname': '', 'datavlans': [], \
-                    'datasubnet': '', 'datamask': '', 'voicevlanname': '', 'voicevlans': [], \
-                    'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
-                    'po': {'ponum': '', 'interfaces': {}}, \
-                    'managementMask': '', 'ManagementIP': ''}
+                if rw.get('Floor') == rw.get('Floor'):
+                    current_floor = rw.get('Floor')
+                if rw.get('IDF ID') == rw.get('IDF ID'):
+                    current_IDF_ID = rw.get('IDF ID')
 
-                    if rw.get('Floor') == rw.get('Floor'):
-                        current_floor = rw.get('Floor')
-                    if rw.get('IDF ID') == rw.get('IDF ID'):
-                        current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
+                if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
+                    dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
 
-                    if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
-                        dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
+                switch_dict['hostname'] = str(rw.get('Switch')).upper()
+                switch_dict['datasubnet'] = dataSubnet.strip()
+                switch_dict['datamask'] = cidr_to_netmask(Subnetmask)
+                switch_dict['managmentIP'] = str(ManagementIP).strip()
+                switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
+                switch_dict['managmentVLAN'] = str(ManagementVLAN).strip()
 
-                    switch_dict['hostname'] = str(rw.get('Switch')).upper()
-                    switch_dict['IDFID'] = current_IDF_ID
-                    switch_dict['datasubnet'] = dataSubnet.strip()
-                    switch_dict['datamask'] = cidr_to_netmask(Subnetmask)
-                    switch_dict['datavlanname'] = GenVlanName(current_service + '_',switch_dict['hostname'])
-                    switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
-                    #if rw.get('ManagementIP') == rw.get('ManagementIP'):
-                    #    switch_dict['ManagementIP'], garbage = str(rw.get('ManagementIP')).split('.0')
+                vl = str(rw.get('VLAN')).split('\n')
+                for vlan in vl:
+                    vlantoadd = str(vlan)
+                    switch_dict['datavlans'].append(vlantoadd)
 
-                    switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
-                    switch_dict['managementVLAN'] = str(ManagementVLAN).strip()
+                # find voice vlan and add to dictionary
+                for vc in worksheets[sname]:
+                    if vc.get('Service') == vc.get('Service'):
+                        current_service = vc.get('Service')
 
-                    if current_service == 'Data':
-                        portmatrixsh = portmatrixwb.parse(sheet_name='6807 Wired VSS')
-                    elif current_service == 'Security Cameras':
-                        portmatrixsh = portmatrixwb.parse(sheet_name='6840 SEC VSS')
-                    else:
-                        portmatrixsh = portmatrixwb.parse(sheet_name='6807 WL VSS')
+                    print(current_service, vc.get('Switch'), switch_dict['hostname'])
+                    if current_service == 'Voice' and str(vc.get('Switch')).upper() == str(switch_dict['hostname']).upper():
+                        voiceSubnet, Subnetmask = str(vc.get('Assigned Subnets')).split('/')
+                        switch_dict['voicesubnet'] = voiceSubnet.strip()
+                        switch_dict['voicemask'] = cidr_to_netmask(Subnetmask)
+                        print('voice vlan: ', vc.get('VLAN'))
+                        vl = str(vc.get('VLAN')).split('\n')
+                        print('vc :', vc)
+                        for vlan in vl:
+                            vlantoadd = str(vlan)
+                            switch_dict['voicevlans'].append(vlantoadd)
+                        break
 
-                    intfdict = {'intfto': '', 'intfname': ''}
+                print(switch_dict)
 
-                    for pmxrow in portmatrixsh.to_records():
-                        if switch_dict['hostname'] == pmxrow[7]:
-                            switch_dict['po']['ponum'] = pmxrow[5][3:]
-                            intfname_intfto = pmxrow[8] + '=' + pmxrow[1]
-                            intfdict = dict(intfs.split('=') for intfs in intfname_intfto.split(','))
-                            switch_dict['po']['interfaces'].append(intfdict)
-                            intfname_intfto = pmxrow[19] + '=' + pmxrow[13]
-                            intfdict = dict(intfs.split('=') for intfs in intfname_intfto.split(','))
-                            switch_dict['po']['interfaces'].append(intfdict)
-                    print(switch_dict['po']['interfaces'])
-                    print(type(switch_dict['po']['interfaces']))
-
-                    vl = str(rw.get('VLAN')).split('\n')
-                    for vlan in vl:
-                        vlantoadd = str(vlan)
-                        switch_dict['datavlans'].append(vlantoadd)
-
-                    switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
-
-                    # find voice vlan and add to dictionary
-                    for vc in worksheets[sname]:
-                        if vc.get('Service') == vc.get('Service'):
-                            current_service_vc = vc.get('Service')
-
-                        if current_service_vc == 'Voice' and str(vc.get('Switch')).upper() == str(switch_dict['hostname']).upper():
-                            voiceSubnet, Subnetmask = str(vc.get('Assigned Subnets')).split('/')
-                            switch_dict['voicevlanname'] = GenVlanName(current_service_vc + '_',switch_dict['hostname'])
-                            switch_dict['voicesubnet'] = voiceSubnet.strip()
-                            switch_dict['voicemask'] = cidr_to_netmask(Subnetmask)
-                            vl = str(vc.get('VLAN')).split('\n')
-                            for vlan in vl:
-                                vlantoadd = str(vlan)
-                                switch_dict['voicevlans'].append(vlantoadd)
-                            break
-                    #print(switch_dict)
-                    print('Generating Config ....> ')
-                    GenerateConfig(switch_dict)
-                    device_queue.put(switch_dict)
+        device_queue.put(switch_dict)
 
 # program entry point
 def main():
@@ -279,7 +230,7 @@ def main():
     # Initializes the threads.
     CreateThreads(arguments.ts)
 
-    ReadWorkBookIntoQueue(arguments.subplan, arguments.portmatrix)
+    ReadWorkBookIntoQueue(arguments.inputfile)
 
     device_queue.join()
 
