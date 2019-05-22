@@ -1,0 +1,131 @@
+{% set nothing = '' %}
+{% set bang = '!' %}
+!
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime msec localtime show-timezone
+service password-encryption
+
+!
+hostname {{ hostname }}
+!
+!
+
+
+!
+!
+!
+1												
+aaa session-id common	
+!
+!											
+!											
+!
+!
+!
+!
+power redundancy-mode redundant
+spanning-tree mode rapid-pvst
+spanning-tree portfast bpduguard default
+spanning-tree extend system-id
+!         
+					
+vlan internal allocation policy ascending			
+
+vlan {{ managementVLAN }}
+ name MGMT
+ 
+{% for vlan in datavlans %}
+Vlan {{ vlan }}
+ name {{ datavlanname }}
+ exit
+{% endfor -%}
+
+{% for vlan in voicevlans %}
+Vlan {{ vlan }}
+ name {{ voicevlanname }}
+ exit
+{% endfor -%}
+{{ nothing }}	
+!
+interface Port-channel{{ po.ponum }}
+ description To  Po{{ po.ponum }}
+ switchport
+ switchport trunk native vlan {{ managementVLAN }}
+ switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ {{ nothing }}
+ switchport mode trunk							
+ storm-control broadcast level 10.00
+!
+
+!USER PORTS
+interface range GigabitEthernet1/0/1 - 48
+ switchport access vlan {% for vlan in datavlans %}{{ vlan }}{% endfor -%}
+ {{ nothing }}
+ switchport mode access
+ switchport voice vlan {% for vlan in voicevlans %}{{ vlan }}{% endfor -%}
+ {{ nothing }}
+ no snmp trap link-status
+ auto qos voip cisco-phone 
+ qos trust device cisco-phone
+ spanning-tree portfast	
+ ip verify source vlan dhcp-snooping
+!
+
+!UPLINK
+{% for intfname,intfto in po.interfaces.items() %}
+interface {{ intfname }}
+ description To switchname {{ intfto }}
+ switchport trunk native vlan {{ managementVLAN }}
+ switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ {{ nothing }}
+ switchport mode trunk
+ udld port aggressive
+ storm-control broadcast level 10.00
+ channel-group {{ po.ponum }} mode active
+{{ bang }}
+{{ nothing }}
+{% endfor -%}
+!
+!											
+!
+interface Vlan1	
+shutdown										
+!
+interface Vlan{{ managementVLAN }}
+ description ** Switch Management **
+ ip address {{ ManagementIP }} {{ managementMask }}
+!											
+ip default-gateway {{ managmentsubnet }}.1
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+ip route 0.0.0.0 0.0.0.0 {{ managmentsubnet }}.1
+ip tacacs source-interface Vlan{{ managementVLAN }}
+ip ssh version 2
+!
+!												
+!
+logging source-interface Vlan{{ managementVLAN }}
+!
+
+!
+!
+!
+!
+line con 0
+ session-timeout 15 
+ exec-timeout 15 0
+ stopbits 1
+line vty 0 4
+ session-timeout 15 
+ exec-timeout 15 0
+ length 0
+ login
+ transport input ssh
+!
+!
+!
+end
