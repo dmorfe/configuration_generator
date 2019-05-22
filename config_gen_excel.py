@@ -63,6 +63,7 @@ def getargs():
     parser = argparse.ArgumentParser(description='Playbook Runner by David Morfe')
     parser.add_argument('--subplan',required=True, help='Subnet Planning name is required.')
     parser.add_argument('--portmatrix',required=True, help='Port Matrix name is required.')
+    parser.add_argument('--configtype',required=True, help='Config type name is required. (AL/WL/SE')
     parser.add_argument('-t', '--j2template', required=True, help='Jinja2 Template file to use.')
     parser.add_argument('-w', help='specify if configuration should be save into Startup Config.\
      \'Y\' to write config \'N\' to preserve Startup Config. If this flag is not specified or any other \
@@ -111,10 +112,10 @@ def CreateThreads(n):
 def ThreadHandler():
     while True:
         dev_data = device_queue.get()
-        print(threading.current_thread().name + '-' + dev_data['hostname'] + ' Submitted')
+        #print(threading.current_thread().name + '-' + dev_data['hostname'] + ' Submitted')
         GenerateConfig(dev_data)
         device_queue.task_done()
-        print(threading.current_thread().name + '-' + dev_data['hostname'] + ' Completed!!')
+        #print(threading.current_thread().name + '-' + dev_data['hostname'] + ' Completed!!')
 
 # open file to right log
 def OpenOutputConfigFile(hostname):
@@ -181,8 +182,14 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                 if rw.get('Service') == rw.get('Service'):
                     current_service = rw.get('Service')
 
-                if str(current_service).strip() == 'Data' or str(current_service).strip() == 'Security Cameras' or \
-                str(current_service).strip() == 'Security Cameras':
+                if arguments.configtype == str('AL').upper():
+                    configt = 'Data'
+                elif arguments.configtype == str('WL').upper():
+                    configt = 'WL'
+                else:
+                    configt = 'Security Cameras'
+
+                if str(current_service).strip() == configt:
                     switch_dict = {'hostname': '', 'IDFID': '', 'datavlanname': '', 'datavlans': [], \
                     'datasubnet': '', 'datamask': '', 'voicevlanname': '', 'voicevlans': [], \
                     'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
@@ -203,8 +210,6 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     switch_dict['datamask'] = cidr_to_netmask(Subnetmask)
                     switch_dict['datavlanname'] = GenVlanName(current_service + '_',switch_dict['hostname'])
                     switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
-                    #if rw.get('ManagementIP') == rw.get('ManagementIP'):
-                    #    switch_dict['ManagementIP'], garbage = str(rw.get('ManagementIP')).split('.0')
 
                     switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
                     switch_dict['managementVLAN'] = str(ManagementVLAN).strip()
@@ -219,23 +224,21 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     intfdict = {'intfto': '', 'intfname': ''}
 
                     for pmxrow in portmatrixsh.to_records():
-                        if switch_dict['hostname'] == pmxrow[7]:
+                        if str(switch_dict['hostname']).upper().strip() == str(pmxrow[7]).upper().strip():
                             switch_dict['po']['ponum'] = pmxrow[5][3:]
-                            intfname_intfto = pmxrow[8] + '=' + pmxrow[1]
-                            intfdict = dict(intfs.split('=') for intfs in intfname_intfto.split(','))
-                            switch_dict['po']['interfaces'].append(intfdict)
-                            intfname_intfto = pmxrow[19] + '=' + pmxrow[13]
-                            intfdict = dict(intfs.split('=') for intfs in intfname_intfto.split(','))
-                            switch_dict['po']['interfaces'].append(intfdict)
-                    print(switch_dict['po']['interfaces'])
-                    print(type(switch_dict['po']['interfaces']))
+                            switch_dict['po']['interfaces'][pmxrow[8]] = pmxrow[1]
+                            switch_dict['po']['interfaces'][pmxrow[19]] = pmxrow[13]
+
+                    print('Host: ' + switch_dict['hostname'])
+                    print('   ', switch_dict['po']['interfaces'])
 
                     vl = str(rw.get('VLAN')).split('\n')
                     for vlan in vl:
                         vlantoadd = str(vlan)
                         switch_dict['datavlans'].append(vlantoadd)
 
-                    switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
+                    switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + \
+                    switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
 
                     # find voice vlan and add to dictionary
                     for vc in worksheets[sname]:
