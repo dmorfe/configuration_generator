@@ -1,0 +1,347 @@
+{% set nothing = '' %}
+{% set bang = '!' %}
+!
+version 16.9
+no service pad
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime show-timezone
+service timestamps log datetime msec localtime show-timezone
+service password-encryption
+service compress-config
+no service dhcp
+!
+hostname {{ hostname }}
+!
+!boot-start-marker
+!boot system flash bootflash:packages.conf;
+!boot-end-marker
+!
+!
+vrf definition mgmtVrf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+logging buffered 512000
+no logging console
+no logging monitor
+logging event link-status global
+enable secret 5 $1$4Qzn$WJuiglgaeGih4BtHgakY9.
+enable password 7 110A391537115A185438
+!
+aaa new-model
+!
+!
+aaa authentication fail-message ^CC
+**** Failed login. Three consecutive fails will revoke. ****
+^C
+aaa authentication login default group tacacs+ line
+aaa authentication enable default group tacacs+ enable
+aaa authorization config-commands
+aaa authorization exec default group tacacs+ if-authenticated 
+aaa authorization commands 0 default group tacacs+ if-authenticated 
+aaa authorization commands 7 default group tacacs+ if-authenticated 
+aaa authorization commands 15 default group tacacs+ if-authenticated 
+aaa accounting exec default start-stop group tacacs+
+aaa accounting commands 0 default start-stop group tacacs+
+aaa accounting commands 7 default start-stop group tacacs+
+aaa accounting commands 15 default start-stop group tacacs+
+!
+!
+!
+1												
+aaa session-id common	
+!
+clock timezone EDT -5 0
+clock summer-time EDT recurring
+!											
+!											
+!
+!
+!
+no ip source-route									
+!
+ip domain lookup
+ip domain-name nyumc.org
+ip name-server 10.185.98.100
+ip name-server 10.132.2.100
+ip name-server 10.134.2.100
+!
+!
+
+ip dhcp snooping vlan {% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}
+{% endfor -%}
+
+no ip dhcp snooping information option
+ip dhcp snooping database ftp://svc_switch:Df1bg40#@eftsnooping.nyumc.org/DHCP-SNOOPING-DB/WUH/{{ hostname }}.dhcp
+ip dhcp snooping
+no ip bootp server
+vtp domain winthrop
+vtp mode transparent
+!				
+					
+power redundancy-mode redundant
+spanning-tree mode rapid-pvst
+spanning-tree portfast bpduguard default
+spanning-tree extend system-id
+!         
+
+redundancy
+ mode sso											
+!				
+							
+vlan internal allocation policy ascending			
+
+vlan {{ managementVLAN }}
+ name MGMT_WUH_LL_MDF_01
+ 
+Vlan 825
+ name PRINT_WUH_LL_MDF_01 
+ exit
+
+{% for vlan in datavlans %}
+Vlan {{ vlan }}
+ name {{ datavlanname }}
+ exit
+{% endfor -%}
+
+{% for vlan in voicevlans %}
+Vlan {{ vlan }}
+ name {{ voicevlanname }}
+ exit
+{% endfor -%}
+{{ nothing }}	
+!
+interface Port-channel{{ po.ponum }}
+ description To WUH-WIREDVSS-DL Po{{ po.ponum }}
+ switchport
+ switchport trunk native vlan {{ managementVLAN }}
+ switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ {{ nothing }}
+ switchport mode trunk							
+ storm-control broadcast level 10.00
+ ip dhcp snooping trust
+!
+
+interface FastEthernet1
+ vrf forwarding mgmtVrf
+ no ip address
+ speed auto
+ duplex auto
+!
+
+!USER PORTS
+interface range GigabitEthernet1/0/1 - 48, GigabitEthernet2/0/1 - 48, GigabitEthernet3/0/1 - 48, GigabitEthernet4/0/1 - 48, GigabitEthernet7/0/1 - 48, GigabitEthernet8/0/1 - 48, GigabitEthernet9/0/1 - 48, GigabitEthernet10/0/1 - 48
+ switchport access vlan {% for vlan in datavlans %}{{ vlan }}{% endfor -%}
+ {{ nothing }}
+ switchport mode access
+ switchport voice vlan {% for vlan in voicevlans %}{{ vlan }}{% endfor -%}
+ {{ nothing }}
+ no snmp trap link-status
+ auto qos voip cisco-phone 
+ qos trust device cisco-phone
+ spanning-tree portfast	
+ ip verify source vlan dhcp-snooping
+!
+
+!UPLINK
+{% for intfname,intfto in po.interfaces.items() %}
+interface {{ intfname }}
+ description To WUH-WIREDVSS-DL {{ intfto }}
+ switchport trunk native vlan {{ managementVLAN }}
+ switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ {{ nothing }}
+ switchport mode trunk
+ ip arp inspection trust
+ udld port aggressive
+ storm-control broadcast level 10.00
+ channel-group {{ po.ponum }} mode active
+ ip dhcp snooping trust
+{{ bang }}
+{{ nothing }}
+{% endfor -%}
+!
+!											
+!
+interface Vlan1	
+shutdown										
+!
+interface Vlan{{ managementVLAN }}
+ description ** Switch Management **
+ ip address {{ ManagementIP }} {{ managementMask }}
+!											
+ip default-gateway 10.23.90.1
+ip forward-protocol nd
+no ip http server
+no ip http secure-server
+ip route 0.0.0.0 0.0.0.0 10.23.90.1
+ip tacacs source-interface Vlan{{ managementVLAN }}
+ip ssh version 2
+!
+ip access-list standard snmp-ro
+ permit 10.150.54.184
+ permit 10.150.54.183
+ permit 10.163.150.16
+ permit 10.185.56.176
+ remark ****SNMP RO for SolarWinds and NetMRI ***
+ permit 10.185.98.150
+ permit 10.150.54.226
+ permit 10.150.54.225
+ permit 10.134.32.252
+ permit 10.150.98.150
+ permit 10.185.80.138
+ permit 10.150.54.219
+ permit 10.163.80.138
+ permit 10.185.54.254
+ permit 10.185.59.1
+ permit 10.185.59.4
+ permit 10.185.59.5
+ permit 10.185.98.66
+ permit 10.134.2.16
+ permit 10.134.32.29
+ permit 10.185.98.16
+ permit 10.185.57.98
+ permit 10.185.57.97
+!												
+!
+logging source-interface Vlan{{ managementVLAN }}
+logging host 10.150.98.150
+logging host 10.185.98.38
+!
+snmp-server community d1ng1nun1v3rs3 RO
+snmp-server trap-source Vlan{{ managementVLAN }}
+snmp-server location {{ IDFID }} (259 1st St, Mineola,NY 11501)
+snmp-server contact NYUMC Network Operations #netops@nyumc.org
+snmp-server enable traps snmp authentication linkdown linkup coldstart warmstart
+snmp-server enable traps tty
+snmp-server enable traps fru-ctrl
+snmp-server enable traps entity
+snmp-server enable traps flash insertion removal
+snmp-server enable traps udld link-fail-rpt status-change
+snmp-server enable traps vtp
+snmp-server enable traps vlancreate
+snmp-server enable traps vlandelete
+snmp-server enable traps envmon fan shutdown supply temperature status
+snmp-server enable traps port-security
+snmp-server enable traps config-copy
+snmp-server enable traps config
+snmp-server enable traps hsrp
+snmp-server enable traps ipmulticast
+snmp-server enable traps bridge newroot topologychange
+snmp-server enable traps stpx inconsistency root-inconsistency loop-inconsistency
+snmp-server enable traps vlan-membership
+!
+!
+!
+no vstack
+banner motd ^CC
+
+*****************************************************************
+*       WARNING to Unauthorized Persons - Do Not Proceed!       *
+*                                                               *
+*       This system is for authorized use only. All activity    *
+*       on this system is monitored. Unauthorized or improper   *
+*       use of this system may result in any of the following   *
+*       administrative disciplinary action, civil penalties,    *
+*       and criminal penalties. By continuing to use this       *
+*       system, you indicate your awareness of and consent to   *
+*       these terms and conditions for use. Log off             *
+*       immediately if you do not agree to the conditions       *
+*       stated in this warning.                                 *
+*                                                               *
+*****************************************************************
+^C
+!
+line con 0
+ session-timeout 15 
+ exec-timeout 15 0
+ password 7 121A2507430700243832
+ stopbits 1
+line vty 0 4
+ session-timeout 15 
+ exec-timeout 15 0
+ password 7 130637025A00080A393D
+ length 0
+login
+ transport input ssh
+!
+!
+monitor session 1 source interface Gi1/44
+monitor session 1 destination interface Gi9/46
+monitor session 1 filter packet-type good rx
+!
+end
+
+
+! *************************** APPLY AFTER SWITCHES ARE ONLINE ********************************************
+snmp-server host 10.163.150.16 d1ng1nun1v3rs3 
+snmp-server host 10.185.59.1 d1ng1nun1v3rs3 
+snmp-server host 10.185.98.16 d1ng1nun1v3rs3 						##########################################don't apply now##########################							
+tacacs-server key 7 03165E1B525C25151D0F
+tacacs server 10.150.42.11
+ address ipv4 10.150.42.11
+tacacs server 10.185.42.11
+ address ipv4 10.185.42.11								################		
+
+ntp update-calendar
+ntp server ntp.nyumc.org
+ntp server ntp3.nyumc.org
+ntp server ntp2.nyumc.org
+ntp server ntp1.nyumc.org
+
+! **************************************   Specialties PORTs configuration ***************************************
+!PRINTER
+interface GigabitEthernet1/2
+ description *** Connected to Printer ***
+ switchport access vlan 825
+ switchport mode access
+ ip arp inspection limit rate 15 burst interval 7
+ no snmp trap link-status
+ spanning-tree portfast
+ ip verify source vlan dhcp-snooping
+!
+!IOT
+interface GigabitEthernet1/11
+ description *** NYULH IoT - ParEX Device ***
+ switchport access vlan 1131
+ switchport mode access
+ no snmp trap link-status
+ spanning-tree portfast
+!################################################################3
+!
+interface GigabitEthernet1/32
+ description Omnicell DMD
+ switchport access vlan 860
+ switchport mode access
+ ip arp inspection limit rate 15 burst interval 7
+ no snmp trap link-status
+ spanning-tree portfast
+ ip verify source vlan dhcp-snooping
+!
+!################################################################
+interface GigabitEthernet1/34
+ description *** MYWALL TV ***
+ switchport access vlan 502
+ switchport mode access
+ no snmp trap link-status
+ spanning-tree portfast
+!############################################################
+interface GigabitEthernet1/35
+ description LeGrand Network
+ switchport access vlan 504
+ switchport mode access
+ ip arp inspection limit rate 15 burst interval 7
+ no snmp trap link-status
+ spanning-tree portfast
+ ip verify source vlan dhcp-snooping
+!##########################################################
+interface GigabitEthernet1/36
+ description Connected to MYWALL PC 
+ switchport access vlan 501
+ switchport mode access
+ no snmp trap link-status
+ spanning-tree portfast									############################################################	
