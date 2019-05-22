@@ -98,11 +98,11 @@ interface Vlan{{ managementVLAN }}
  description ** Switch Management **
  ip address {{ ManagementIP }} {{ managementMask }}
 !											
-ip default-gateway 10.23.90.1
+ip default-gateway {{ managmentsubnet }}.1
 ip forward-protocol nd
 no ip http server
 no ip http secure-server
-ip route 0.0.0.0 0.0.0.0 10.23.90.1
+ip route 0.0.0.0 0.0.0.0 {{ managmentsubnet }}.1
 ip tacacs source-interface Vlan{{ managementVLAN }}
 ip ssh version 2
 !
