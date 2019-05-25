@@ -152,15 +152,26 @@ def cidr_to_netmask(cidr):
 
 # open Excel Workbook and reaad rows and queue for processing
 def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
+    next_service = False
     worksheets = {}
     ManagementIP = ''
     ManagementMask = ''
     ManagementVLAN = ''
-    current_floor = ''
+    dataSubnet = ''
+    Subnetmask = 0
+    current_floor = 0
     current_IDF_ID = ''
     current_service = ''
+    mgmtIPoctect = 11
 
     portmatrixwb = excel.ExcelFile(portMatrix)
+
+    if arguments.configtype.upper() == 'AL':
+        configt = 'Data'
+    elif arguments.configtype.upper() == 'WL':
+        configt = 'Wireless'
+    else:
+        configt = 'Security Cameras'
 
     with excel.ExcelFile(inputSubPlan) as wb:
         for sname in wb.sheet_names:
@@ -172,43 +183,56 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
             print('Finding management subnet and VLAN: \n')
             for rw in worksheets[sname]:
-                if rw.get('Service') == 'Wired Switch Management' or rw.get('Service') == 'Wireless Switch Management' or \
-                rw.get('Service') == 'Security Switch Management':
+                if rw.get('Service') == 'Wired Switch Management' and configt == 'Data':
                     ManagementIP, ManagementMask = str(rw.get('Assigned Subnets')).split('/')
                     ManagementVLAN = rw.get('VLAN')
                     break
+                elif rw.get('Service') == 'Wireless Switch Management' and configt == 'Wireless':
+                    ManagementIP, ManagementMask = str(rw.get('Assigned Subnets')).split('/')
+                    ManagementVLAN = rw.get('VLAN')
+                    break
+                else:
+                    if rw.get('Service') == 'Security Switch Management'  and configt == 'Security Cameras':
+                        ManagementIP, ManagementMask = str(rw.get('Assigned Subnets')).split('/')
+                        ManagementVLAN = rw.get('VLAN')
+                        break
 
             for rw in worksheets[sname]:
-                if rw.get('Service') == rw.get('Service'):
-                    current_service = rw.get('Service')
+                if next_service and rw.get('Service') == rw.get('Service'):
+                    break
 
-                if arguments.configtype == str('AL').upper():
-                    configt = 'Data'
-                elif arguments.configtype == str('WL').upper():
-                    configt = 'WL'
-                else:
-                    configt = 'Security Cameras'
+                if rw.get('Service') == configt:
+                    current_service = str(rw.get('Service')).strip()
+                    print('found service: ', rw.get('Service'))
 
-                if str(current_service).strip() == configt:
-                    switch_dict = {'hostname': '', 'IDFID': '', 'datavlanname': '', 'datavlans': [], \
-                    'datasubnet': '', 'datamask': '', 'voicevlanname': '', 'voicevlans': [], \
-                    'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
-                    'po': {'ponum': '', 'interfaces': {}}, \
-                    'managementMask': '', 'ManagementIP': ''}
+                if (current_service == configt):
+                    print('processing next...')
+                    switch_dict = {'hostname': '', 'IDFID': '', 'managementMask': '', 'ManagementIP': '', \
+                    'datavlanname': '', 'datavlans': [], 'datasubnet': '', 'datamask': '', 'voicevlanname': '', \
+                    'voicevlans': [], 'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
+                    'po': {'ponum': '', 'interfaces': {}}}
 
+                    next_service = True
                     if rw.get('Floor') == rw.get('Floor'):
                         current_floor = rw.get('Floor')
                     if rw.get('IDF ID') == rw.get('IDF ID'):
                         current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
 
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
+                        print(rw.get('Assigned Subnets'))
                         dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
 
                     switch_dict['hostname'] = str(rw.get('Switch')).upper()
                     switch_dict['IDFID'] = current_IDF_ID
                     switch_dict['datasubnet'] = dataSubnet.strip()
                     switch_dict['datamask'] = cidr_to_netmask(Subnetmask)
-                    switch_dict['datavlanname'] = GenVlanName(current_service + '_',switch_dict['hostname'])
+
+                    if configt == 'Data' or configt == 'Wireless':
+                        switch_dict['datavlanname'] = GenVlanName(configt + '_',switch_dict['hostname'])
+                    else:
+                        temp_service, garbage = configt.split(" ")
+                        switch_dict['datavlanname'] = GenVlanName(temp_service + '_',switch_dict['hostname'])
+
                     switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
 
                     switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
@@ -216,19 +240,29 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
                     if current_service == 'Data':
                         portmatrixsh = portmatrixwb.parse(sheet_name='6807 Wired VSS')
+                        print('Processing AL Port Matrix ...')
                     elif current_service == 'Security Cameras':
                         portmatrixsh = portmatrixwb.parse(sheet_name='6840 SEC VSS')
+                        print('Processing SE Port Matrix ...')
                     else:
                         portmatrixsh = portmatrixwb.parse(sheet_name='6807 WL VSS')
-
-                    intfdict = {'intfto': '', 'intfname': ''}
+                        print('Processing WL Port Matrix ...')
 
                     for pmxrow in portmatrixsh.to_records():
+                        # apply this logic to AL tab in port matrix
                         if str(switch_dict['hostname']).upper().strip() == str(pmxrow[7]).upper().strip():
-                            switch_dict['po']['ponum'] = pmxrow[5][3:]
+                            switch_dict['po']['ponum'] = pmxrow[5][2:].strip()
                             switch_dict['po']['interfaces'][pmxrow[8]] = pmxrow[1]
                             switch_dict['po']['interfaces'][pmxrow[19]] = pmxrow[13]
+                            print('port matrix fields: ',pmxrow[7],pmxrow[5][3:],pmxrow[8],pmxrow[1],pmxrow[19],pmxrow[13] )
+                        # apply this logic to fields on WL and SEC in port matrix
+                        if str(switch_dict['hostname']).upper().strip() == str(pmxrow[6]).upper().strip():
+                            switch_dict['po']['ponum'] = pmxrow[4][2:].strip()
+                            switch_dict['po']['interfaces'][pmxrow[7]] = pmxrow[1]
+                            switch_dict['po']['interfaces'][pmxrow[16]] = pmxrow[11]
+                            print('port matrix fields: ',pmxrow[6],pmxrow[4][3:],pmxrow[7],pmxrow[1],pmxrow[16],pmxrow[11] )
 
+                    print(switch_dict)
                     print('Host: ' + switch_dict['hostname'])
                     print('   ', switch_dict['po']['interfaces'])
 
@@ -237,8 +271,12 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                         vlantoadd = str(vlan)
                         switch_dict['datavlans'].append(vlantoadd)
 
-                    switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + \
-                    switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
+                    if configt == 'Data':
+                        switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + \
+                        switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
+                    else:
+                        switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + str(mgmtIPoctect)
+                        mgmtIPoctect = mgmtIPoctect + 3
 
                     # find voice vlan and add to dictionary
                     for vc in worksheets[sname]:
@@ -251,11 +289,12 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                             switch_dict['voicesubnet'] = voiceSubnet.strip()
                             switch_dict['voicemask'] = cidr_to_netmask(Subnetmask)
                             vl = str(vc.get('VLAN')).split('\n')
+
                             for vlan in vl:
                                 vlantoadd = str(vlan)
                                 switch_dict['voicevlans'].append(vlantoadd)
                             break
-                    #print(switch_dict)
+
                     print('Generating Config ....> ')
                     GenerateConfig(switch_dict)
                     device_queue.put(switch_dict)
