@@ -219,7 +219,6 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                         current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
 
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
-                        print(rw.get('Assigned Subnets'))
                         dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
 
                     switch_dict['hostname'] = str(rw.get('Switch')).upper()
@@ -254,17 +253,11 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                             switch_dict['po']['ponum'] = pmxrow[5][2:].strip()
                             switch_dict['po']['interfaces'][pmxrow[8]] = pmxrow[1]
                             switch_dict['po']['interfaces'][pmxrow[19]] = pmxrow[13]
-                            print('port matrix fields: ',pmxrow[7],pmxrow[5][3:],pmxrow[8],pmxrow[1],pmxrow[19],pmxrow[13] )
                         # apply this logic to fields on WL and SEC in port matrix
                         if str(switch_dict['hostname']).upper().strip() == str(pmxrow[6]).upper().strip():
                             switch_dict['po']['ponum'] = pmxrow[4][2:].strip()
                             switch_dict['po']['interfaces'][pmxrow[7]] = pmxrow[1]
                             switch_dict['po']['interfaces'][pmxrow[16]] = pmxrow[11]
-                            print('port matrix fields: ',pmxrow[6],pmxrow[4][3:],pmxrow[7],pmxrow[1],pmxrow[16],pmxrow[11] )
-
-                    print(switch_dict)
-                    print('Host: ' + switch_dict['hostname'])
-                    print('   ', switch_dict['po']['interfaces'])
 
                     vl = str(rw.get('VLAN')).split('\n')
                     for vlan in vl:
@@ -294,7 +287,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                                 vlantoadd = str(vlan)
                                 switch_dict['voicevlans'].append(vlantoadd)
                             break
-
+                    print(switch_dict)
                     print('Generating Config ....> ')
                     GenerateConfig(switch_dict)
                     device_queue.put(switch_dict)
