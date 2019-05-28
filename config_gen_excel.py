@@ -227,10 +227,10 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     switch_dict['datamask'] = cidr_to_netmask(Subnetmask)
 
                     if configt == 'Data' or configt == 'Wireless':
-                        switch_dict['datavlanname'] = GenVlanName(configt + '_',switch_dict['hostname'])
+                        switch_dict['datavlanname'] = GenVlanName(configt.upper() + '_',switch_dict['hostname'])
                     else:
                         temp_service, garbage = configt.split(" ")
-                        switch_dict['datavlanname'] = GenVlanName(temp_service + '_',switch_dict['hostname'])
+                        switch_dict['datavlanname'] = GenVlanName(temp_service.upper() + '_',switch_dict['hostname'])
 
                     switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
 
@@ -278,7 +278,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
                         if current_service_vc == 'Voice' and str(vc.get('Switch')).upper() == str(switch_dict['hostname']).upper():
                             voiceSubnet, Subnetmask = str(vc.get('Assigned Subnets')).split('/')
-                            switch_dict['voicevlanname'] = GenVlanName(current_service_vc + '_',switch_dict['hostname'])
+                            switch_dict['voicevlanname'] = GenVlanName(current_service_vc.upper() + '_',switch_dict['hostname'])
                             switch_dict['voicesubnet'] = voiceSubnet.strip()
                             switch_dict['voicemask'] = cidr_to_netmask(Subnetmask)
                             vl = str(vc.get('VLAN')).split('\n')
