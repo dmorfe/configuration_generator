@@ -242,7 +242,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
 
                     switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
-                    switch_dict['managementVLAN'] = str(ManagementVLAN).strip()
+                    switch_dict['managementVLAN'] = str(int(float(ManagementVLAN))).strip()
 
                     if current_service == 'Data':
                         portmatrixsh = portmatrixwb.parse(sheet_name='6807 Wired VSS')
