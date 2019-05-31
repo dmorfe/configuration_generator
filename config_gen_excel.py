@@ -63,7 +63,7 @@ def getargs():
     parser = argparse.ArgumentParser(description='Playbook Runner by David Morfe')
     parser.add_argument('--subplan',required=True, help='Subnet Planning name is required.')
     parser.add_argument('--portmatrix',required=True, help='Port Matrix name is required.')
-    parser.add_argument('--configtype',required=True, help='Config type name is required. (AL/WL/SE')
+    parser.add_argument('--configtype',required=True, help='Config type name is required. (AL/WL/SE)')
     parser.add_argument('-t', '--j2template', required=True, help='Jinja2 Template file to use.')
     parser.add_argument('-w', help='specify if configuration should be save into Startup Config.\
      \'Y\' to write config \'N\' to preserve Startup Config. If this flag is not specified or any other \
@@ -289,7 +289,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                                 vlantoadd = str(vlan)
                                 switch_dict['voicevlans'].append(str(int(float(vlantoadd))))
                             break
-                    print(switch_dict)
+                    print(switch_dict, '\n')
                     print('Generating Config ....> ')
                     GenerateConfig(switch_dict)
                     device_queue.put(switch_dict)
