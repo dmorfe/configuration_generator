@@ -121,12 +121,13 @@ def OpenOutputConfigFile(filename):
     fileH = open(filename,'w')
     return(fileH)
 
+# write device dictionary as YAML.
 def WriteYamlFile(rw):
     fileH = open(rw.get('hostname') + ".yaml",'w')
     fileH.write(yaml.dump(rw, explicit_start=True, indent=5, default_flow_style=False))
     fileH.close()
 
-# write command header and results to OpenOutputConfigFile
+# Render Jinja2 template from given dictionary.
 def WriteConfig(dicttowr, templatename, fileh):
     #Load Jinja2 template
     env = Environment(loader = FileSystemLoader('./'), trim_blocks=True, lstrip_blocks=True)
@@ -136,12 +137,14 @@ def WriteConfig(dicttowr, templatename, fileh):
     GenarateDevConfig = template.render(dicttowr)
     fileh.write(GenarateDevConfig)
 
-# Connects to device runs commands and creates and log file
+# Generate device config from dictionary
 def GenerateConfig(rw):
     fh = OpenOutputConfigFile(rw['hostname'] + '.config')
+    # write device config to output file.
     WriteConfig(rw, templatefile, fh)
     fh.close()
     fh = OpenOutputConfigFile(rw['hostname'] + '-Ansible-playbook.yaml')
+    # create device Ansible playbook
     WriteConfig(rw, 'ansible-playbook.j2', fh)
     fh.close()
     WriteYamlFile(rw)
@@ -199,6 +202,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                         break
 
             for rw in worksheets[sname]:
+                # exit for loop when we finished processing the service we want to process.
                 if next_service and rw.get('Service') == rw.get('Service'):
                     break
 
@@ -212,7 +216,8 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     'datavlanname': '', 'datavlans': [], 'datasubnet': '', 'datamask': '', 'voicevlanname': '', \
                     'voicevlans': [], 'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
                     'po': {'ponum': '', 'interfaces': {}}}
-
+                    
+                    # make value true once the service we want to process is found.
                     next_service = True
                     if rw.get('Floor') == rw.get('Floor'):
                         current_floor = rw.get('Floor')
