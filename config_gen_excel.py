@@ -141,7 +141,7 @@ def GenerateConfig(rw):
     fh = OpenOutputConfigFile(rw['hostname'] + '.config')
     WriteConfig(rw, templatefile, fh)
     fh.close()
-    fh = OpenOutputConfigFile(rw['hostname'] + '-playbook.yaml')
+    fh = OpenOutputConfigFile(rw['hostname'] + '-Ansible-playbook.yaml')
     WriteConfig(rw, 'ansible-playbook.j2', fh)
     fh.close()
     WriteYamlFile(rw)
