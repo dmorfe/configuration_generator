@@ -5,4 +5,4 @@ The config_gen_excel.py will read an excel workbook and will generate device(s) 
 
 The generated files will be save under the host name pulled from the Excel workbook.
 
-## DO NOT ALTER THE SPREADSHEET NAMES(COLUMNS and TABs) AND DO NOT ALTER THE COLUMNS POSITIONS OR THE PROGRAM WILL BREAK
+## DO NOT ALTER THE SPREADSHEET NAMES(COLUMNS and TABs) AND DO NOT ALTER THE COLUMNS POSITIONS. IF YOU DO THE PROGRAM WILL BREAK.
