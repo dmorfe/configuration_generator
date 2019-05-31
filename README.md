@@ -20,5 +20,6 @@ The generated files will be save under the host name pulled from the Excel workb
                             - {device name-Ansible-playbook}.yaml
                            Once you have all 3 files under the same directory structure, run the following command:
                             - ansible-playbook {device name-Ansible-playbook}.yaml
+                            
      
   - config_gen_excel.py
