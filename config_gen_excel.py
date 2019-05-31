@@ -90,17 +90,6 @@ def getargs():
 
     return(args)
 
-# generate VLAN name
-def GenVlanName(vlantype, swname):
-    newVlanName = swname.replace('-','_')
-    newVlanName = newVlanName.replace('IDF','0')
-    newVlanName = newVlanName.replace('SE','0')
-    newVlanName = newVlanName.replace('WL','0')
-    newVlanName = newVlanName.replace('AL','0')
-
-    return(vlantype + newVlanName)
-
-
 # Initializes the threads. Expects an interger as a parameter.
 def CreateThreads(n):
     print('Creating ' + str(n) + ' Threads')
@@ -117,9 +106,19 @@ def ThreadHandler():
         device_queue.task_done()
         #print(threading.current_thread().name + '-' + dev_data['hostname'] + ' Completed!!')
 
+# generate VLAN name
+def GenVlanName(vlantype, swname):
+    newVlanName = swname.replace('-','_')
+    newVlanName = newVlanName.replace('IDF','0')
+    newVlanName = newVlanName.replace('SE','0')
+    newVlanName = newVlanName.replace('WL','0')
+    newVlanName = newVlanName.replace('AL','0')
+
+    return(vlantype + newVlanName)
+
 # open file to right log
-def OpenOutputConfigFile(hostname):
-    fileH = open(hostname + ".config",'w')
+def OpenOutputConfigFile(filename):
+    fileH = open(filename,'w')
     return(fileH)
 
 def WriteYamlFile(rw):
@@ -127,12 +126,11 @@ def WriteYamlFile(rw):
     fileH.write(yaml.dump(rw, explicit_start=True, indent=5, default_flow_style=False))
     fileH.close()
 
-
 # write command header and results to OpenOutputConfigFile
-def WriteConfig(dicttowr, fileh):
+def WriteConfig(dicttowr, templatename, fileh):
     #Load Jinja2 template
     env = Environment(loader = FileSystemLoader('./'), trim_blocks=True, lstrip_blocks=True)
-    template = env.get_template(templatefile)
+    template = env.get_template(templatename)
 
     #Render template using data and print the output
     GenarateDevConfig = template.render(dicttowr)
@@ -140,10 +138,13 @@ def WriteConfig(dicttowr, fileh):
 
 # Connects to device runs commands and creates and log file
 def GenerateConfig(rw):
-    fh = OpenOutputConfigFile(rw['hostname'])
-    WriteConfig(rw, fh)
-    WriteYamlFile(rw)
+    fh = OpenOutputConfigFile(rw['hostname'] + '.config')
+    WriteConfig(rw, templatefile, fh)
     fh.close()
+    fh = OpenOutputConfigFile(rw['hostname'] + '-playbook.yaml')
+    WriteConfig(rw, 'ansible-playbook.j2', fh)
+    fh.close()
+    WriteYamlFile(rw)
 
 def cidr_to_netmask(cidr):
     host_bits = 32 - int(cidr)
@@ -207,7 +208,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
                 if (current_service == configt):
                     print('processing next...')
-                    switch_dict = {'hostname': '', 'IDFID': '', 'managementMask': '', 'ManagementIP': '', \
+                    switch_dict = {'jinjatemplate': '', 'hostname': '', 'IDFID': '', 'managementMask': '', 'ManagementIP': '', \
                     'datavlanname': '', 'datavlans': [], 'datasubnet': '', 'datamask': '', 'voicevlanname': '', \
                     'voicevlans': [], 'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
                     'po': {'ponum': '', 'interfaces': {}}}
@@ -221,6 +222,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
                         dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
 
+                    switch_dict['jinjatemplate'] = templatefile
                     switch_dict['hostname'] = str(rw.get('Switch')).upper()
                     switch_dict['IDFID'] = current_IDF_ID
                     switch_dict['datasubnet'] = dataSubnet.strip()
@@ -262,7 +264,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     vl = str(rw.get('VLAN')).split('\n')
                     for vlan in vl:
                         vlantoadd = str(vlan)
-                        switch_dict['datavlans'].append(vlantoadd)
+                        switch_dict['datavlans'].append(str(int(float(vlantoadd))))
 
                     if configt == 'Data':
                         switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + \
@@ -285,7 +287,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
                             for vlan in vl:
                                 vlantoadd = str(vlan)
-                                switch_dict['voicevlans'].append(vlantoadd)
+                                switch_dict['voicevlans'].append(str(int(float(vlantoadd))))
                             break
                     print(switch_dict)
                     print('Generating Config ....> ')

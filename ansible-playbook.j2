@@ -1,0 +1,11 @@
+- hosts: localhost
+  become: false
+
+  tasks:
+  - name: 'Loading Yaml dictionary for: {{ hostname }}'
+    include_vars: '{{ hostname }}.yaml'
+
+  - name: 'Generating config for: {{ hostname }}'
+    template:
+      src: '{{ jinjatemplate }}'
+      dest: '{{ hostname }}.config'
