@@ -121,13 +121,12 @@ def OpenOutputConfigFile(filename):
     fileH = open(filename,'w')
     return(fileH)
 
-# write device dictionary as YAML.
 def WriteYamlFile(rw):
     fileH = open(rw.get('hostname') + ".yaml",'w')
     fileH.write(yaml.dump(rw, explicit_start=True, indent=5, default_flow_style=False))
     fileH.close()
 
-# Render Jinja2 template from given dictionary.
+# write command header and results to OpenOutputConfigFile
 def WriteConfig(dicttowr, templatename, fileh):
     #Load Jinja2 template
     env = Environment(loader = FileSystemLoader('./'), trim_blocks=True, lstrip_blocks=True)
@@ -137,14 +136,12 @@ def WriteConfig(dicttowr, templatename, fileh):
     GenarateDevConfig = template.render(dicttowr)
     fileh.write(GenarateDevConfig)
 
-# Generate device config from dictionary
+# Connects to device runs commands and creates and log file
 def GenerateConfig(rw):
     fh = OpenOutputConfigFile(rw['hostname'] + '.config')
-    # write device config to output file.
     WriteConfig(rw, templatefile, fh)
     fh.close()
     fh = OpenOutputConfigFile(rw['hostname'] + '-Ansible-playbook.yaml')
-    # create device Ansible playbook
     WriteConfig(rw, 'ansible-playbook.j2', fh)
     fh.close()
     WriteYamlFile(rw)
@@ -202,7 +199,6 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                         break
 
             for rw in worksheets[sname]:
-                # exit for loop when we finished processing the service we want to process.
                 if next_service and rw.get('Service') == rw.get('Service'):
                     break
 
@@ -216,12 +212,13 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     'datavlanname': '', 'datavlans': [], 'datasubnet': '', 'datamask': '', 'voicevlanname': '', \
                     'voicevlans': [], 'voicesubnet': '', 'voicemask': '',  'managementVLAN': '', 'managmentsubnet': '', \
                     'po': {'ponum': '', 'interfaces': {}}}
-                    
-                    # make value true once the service we want to process is found.
+
                     next_service = True
                     if rw.get('Floor') == rw.get('Floor'):
                         current_floor = rw.get('Floor')
-                    if rw.get('IDF ID') == rw.get('IDF ID'):
+                    # Gets IDFID base on Switch name
+                    #if rw.get('IDF ID') == rw.get('IDF ID'):
+                    if rw.get('Switch') == rw.get('Switch'):
                         current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
 
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
@@ -242,7 +239,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     switch_dict['managmentsubnet'], garbage = str(ManagementIP).strip().split('.0',3)
 
                     switch_dict['managementMask'] = cidr_to_netmask(ManagementMask)
-                    switch_dict['managementVLAN'] = str(int(float(ManagementVLAN))).strip()
+                    switch_dict['managementVLAN'] = str(ManagementVLAN).strip()
 
                     if current_service == 'Data':
                         portmatrixsh = portmatrixwb.parse(sheet_name='6807 Wired VSS')
