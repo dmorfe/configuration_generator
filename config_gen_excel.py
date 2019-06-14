@@ -1,4 +1,19 @@
 #!/usr/bin/env python
+'''
+Author: David Morfe
+This program will read subnet planning and port matrix from two different spreadsheets and by use of Jinja2
+will create a configuration file for a device or devices.
+
+At the same time the program will create a YAML file with the device(s) configuration and also will create a
+YAML Ansible playbook which can be run in case changes to the device config is require. All you have to do
+is make changes to the device YAML config file and then run:
+    - ansible_playbook <device playbook>.yaml.
+Make sure you have the following 3 files in the same directory:
+    - <device name>.yaml
+    - <device playbook>.yaml
+    - <jinja2 template>.j2  - this is the jinja2 template that was used by this PY program to generate
+                              the initial config(s).
+'''
 from pandas.io import excel
 from pandas import DataFrame
 from netmiko import ConnectHandler
@@ -163,7 +178,8 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
     current_floor = 0
     current_IDF_ID = ''
     current_service = ''
-    mgmtIPoctect = 11
+    mgmtIPoctect = 0
+    mgmtIPTracker = 0
 
     portmatrixwb = excel.ExcelFile(portMatrix)
 
@@ -214,10 +230,13 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     'po': {'ponum': '', 'interfaces': {}}}
 
                     next_service = True
+                    # find current floor and assign 10 to mgmtIPoctect for management last octect
                     if rw.get('Floor') == rw.get('Floor'):
                         current_floor = rw.get('Floor')
+                        mgmtIPTracker = mgmtIPTracker + 1
+                        mgmtIPoctect = (mgmtIPTracker * 10) + 1
+
                     # Gets IDFID base on Switch name
-                    #if rw.get('IDF ID') == rw.get('IDF ID'):
                     if rw.get('Switch') == rw.get('Switch'):
                         current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
 
@@ -273,7 +292,7 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                         switch_dict['datavlans'][0][len(switch_dict['datavlans'])-3:]
                     else:
                         switch_dict['ManagementIP'] = switch_dict['managmentsubnet'] + '.' + str(mgmtIPoctect)
-                        mgmtIPoctect = mgmtIPoctect + 3
+                        mgmtIPoctect = mgmtIPoctect + 1
 
                     # find voice vlan and add to dictionary
                     for vc in worksheets[sname]:
