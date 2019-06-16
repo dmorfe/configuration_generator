@@ -54,7 +54,7 @@ interface Port-channel{{ po.ponum }}
  description To  Po{{ po.ponum }}
  switchport
  switchport trunk native vlan {{ managementVLAN }}
- switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ switchport trunk allowed vlan {{ managementVLAN }},{{ datavlans|join(',') }},{{ voicevlans|join(',') }} 
  {{ nothing }}
  switchport mode trunk							
  storm-control broadcast level 10.00
@@ -62,10 +62,10 @@ interface Port-channel{{ po.ponum }}
 
 !USER PORTS
 interface range GigabitEthernet1/0/1 - 48
- switchport access vlan {% for vlan in datavlans %}{{ vlan }}{% endfor -%}
+ switchport access vlan {{ datavlans[0] }}
  {{ nothing }}
  switchport mode access
- switchport voice vlan {% for vlan in voicevlans %}{{ vlan }}{% endfor -%}
+ switchport voice vlan {{ voicevlans[0] }}
  {{ nothing }}
  no snmp trap link-status
  auto qos voip cisco-phone 
@@ -79,7 +79,7 @@ interface range GigabitEthernet1/0/1 - 48
 interface {{ intfname }}
  description To switchname {{ intfto }}
  switchport trunk native vlan {{ managementVLAN }}
- switchport trunk allowed vlan {{ managementVLAN }},{% for vlan in datavlans %}{{ vlan }}{% endfor -%},{% for vlan in voicevlans %}{{ vlan }}{% endfor -%} 
+ switchport trunk allowed vlan {{ managementVLAN }},{{ datavlans|join(',') }},{{ voicevlans|join(',') }} 
  {{ nothing }}
  switchport mode trunk
  udld port aggressive
