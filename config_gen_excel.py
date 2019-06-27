@@ -124,10 +124,10 @@ def ThreadHandler():
 # generate VLAN name
 def GenVlanName(vlantype, swname):
     newVlanName = swname.replace('-','_')
-    newVlanName = newVlanName.replace('IDF','0')
-    newVlanName = newVlanName.replace('SE','0')
-    newVlanName = newVlanName.replace('WL','0')
-    newVlanName = newVlanName.replace('AL','0')
+    #newVlanName = newVlanName.replace('IDF','0')
+    #newVlanName = newVlanName.replace('SE','0')
+    #newVlanName = newVlanName.replace('WL','0')
+    #newVlanName = newVlanName.replace('AL','0')
 
     return(vlantype + newVlanName)
 
@@ -239,6 +239,11 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
                     # Gets IDFID base on Switch name
                     if rw.get('Switch') == rw.get('Switch'):
                         current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
+                        current_IDF_ID = current_IDF_ID.replace('_AL1','')
+                        current_IDF_ID = current_IDF_ID.replace('_AL2','')
+                        current_IDF_ID = current_IDF_ID.replace('_AL3','')
+                        current_IDF_ID = current_IDF_ID.replace('_WL1','')
+                        current_IDF_ID = current_IDF_ID.replace('_SE1','')
 
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
                         dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
