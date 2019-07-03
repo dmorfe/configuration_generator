@@ -124,10 +124,16 @@ def ThreadHandler():
 # generate VLAN name
 def GenVlanName(vlantype, swname):
     newVlanName = swname.replace('-','_')
-    #newVlanName = newVlanName.replace('IDF','0')
-    #newVlanName = newVlanName.replace('SE','0')
-    #newVlanName = newVlanName.replace('WL','0')
-    #newVlanName = newVlanName.replace('AL','0')
+    newVlanName = newVlanName.replace('IDF','')
+    newVlanName = newVlanName.replace('SE','')
+    newVlanName = newVlanName.replace('WL','')
+    newVlanName = newVlanName.replace('AL','')
+    newVlanName = newVlanName.replace('1FL','01')
+    newVlanName = newVlanName.replace('2FL','02')
+    newVlanName = newVlanName.replace('3FL','03')
+    newVlanName = newVlanName.replace('4FL','04')
+    newVlanName = newVlanName.replace('5FL','05')
+    newVlanName = newVlanName.replace('6FL','06')
 
     return(vlantype + newVlanName)
 
@@ -238,12 +244,14 @@ def ReadWorkBookIntoQueue(inputSubPlan, portMatrix):
 
                     # Gets IDFID base on Switch name
                     if rw.get('Switch') == rw.get('Switch'):
-                        current_IDF_ID = GenVlanName("",str(rw.get('Switch')).upper())
+                        current_IDF_ID = str(rw.get('Switch').upper())
+                        #current_IDF_ID = current_IDF_ID.replace('-','_')
                         current_IDF_ID = current_IDF_ID.replace('_AL1','')
                         current_IDF_ID = current_IDF_ID.replace('_AL2','')
                         current_IDF_ID = current_IDF_ID.replace('_AL3','')
                         current_IDF_ID = current_IDF_ID.replace('_WL1','')
                         current_IDF_ID = current_IDF_ID.replace('_SE1','')
+                        current_IDF_ID = GenVlanName("",current_IDF_ID)
 
                     if rw.get('Assigned Subnets') == rw.get('Assigned Subnets'):
                         dataSubnet, Subnetmask = str(rw.get('Assigned Subnets')).split('/')
